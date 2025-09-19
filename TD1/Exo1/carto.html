@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Géolocalisation</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="container">
+    <h1>Géolocalisation<span class="badge">demo</span></h1>
+
+    <section class="cards">
+      <div class="card">
+        <strong>Mesure unique (getCurrentPosition)</strong>
+        <div class="grid" id="once">
+          <div class="row"><div class="key">Latitude</div><div class="val" id="once-lat">—</div></div>
+          <div class="row"><div class="key">Longitude</div><div class="val" id="once-lon">—</div></div>
+          <div class="row"><div class="key">Altitude</div><div class="val" id="once-alt">—</div></div>
+          <div class="row"><div class="key">Précision (m)</div><div class="val" id="once-acc">—</div></div>
+          <div class="row"><div class="key">Vitesse (m/s)</div><div class="val" id="once-speed">—</div></div>
+          <div class="row"><div class="key">Date</div><div class="val" id="once-date">—</div></div>
+        </div>
+        <div class="actions">
+          <button id="btn-once">Obtenir la position</button>
+        </div>
+        <div class="err" id="once-err"></div>
+      </div>
+
+      <div class="card">
+        <strong>Suivi en continu (watchPosition)</strong>
+        <div class="grid" id="watch">
+          <div class="row"><div class="key">Latitude</div><div class="val" id="watch-lat">—</div></div>
+          <div class="row"><div class="key">Longitude</div><div class="val" id="watch-lon">—</div></div>
+          <div class="row"><div class="key">Altitude</div><div class="val" id="watch-alt">—</div></div>
+          <div class="row"><div class="key">Précision (m)</div><div class="val" id="watch-acc">—</div></div>
+          <div class="row"><div class="key">Vitesse (m/s)</div><div class="val" id="watch-speed">—</div></div>
+          <div class="row"><div class="key">Date</div><div class="val" id="watch-date">—</div></div>
+        </div>
+        <div class="actions">
+          <button id="btn-start">Démarrer le suivi</button>
+          <button id="btn-stop" disabled>Arrêter</button>
+        </div>
+        <div class="err" id="watch-err"></div>
+        <small id="hint"></small>
+      </div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
