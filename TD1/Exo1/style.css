@@ -54,7 +54,8 @@ h1{font-size:clamp(20px,2.6vw,28px); margin:0 0 18px; letter-spacing:.2px}
 button{
   appearance:none; padding:10px 14px; border-radius:12px; border:1px solid var(--border);
   background:linear-gradient(180deg, var(--bg-accent), rgba(255,255,255,.88));
-  cursor:pointer; transition:transform .06s ease, box-shadow .15s ease, border-color .2s ease, background .2s ease;
+  cursor:pointer;
+  transition: transform .06s ease, box-shadow .15s ease, border-color .2s ease, background-color .2s ease;
   box-shadow:var(--shadow); font-weight:600;
 }
 button:hover{transform:translateY(-1px)}
