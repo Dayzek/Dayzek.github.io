@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TD2 – Exo 2 Babylon.js</title>
+  <style>
+    html,body{height:100%;margin:0;overflow:hidden;background:#0a0f2c}
+    #renderCanvas{width:100%;height:100%;touch-action:none}
+  </style>
+
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  <script src="https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+  <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+  <script src="https://cdn.babylonjs.com/cannon.js"></script>
+</head>
+<body>
+  <canvas id="renderCanvas"></canvas>
+
+  <script>
+    let canvas, engine, scene, camera;
+    let torus, ground, importedMesh;
+    let physicsEnabled = false;
+    let deviceOrientationData = { alpha: 0, beta: 0, gamma: 0 };
+    let lastOrientationData = { alpha: 0, beta: 0, gamma: 0 };
+    let isDeviceMoving = false;
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      await init();
+      render();
+    });
+
+    async function init() {
+      canvas = document.getElementById('renderCanvas');
+      engine = new BABYLON.Engine(canvas, true);
+      createScene();
+
+      window.addEventListener('resize', () => engine.resize());
+      window.addEventListener('keydown', onKeyDown);
+
+      if (window.DeviceOrientationEvent) {
+        window.addEventListener('deviceorientation', onDeviceOrientation);
+      }
+      if (typeof DeviceOrientationEvent?.requestPermission === 'function') {
+        try {
+          const permission = await DeviceOrientationEvent.requestPermission();
+          if (permission === 'granted') window.addEventListener('deviceorientation', onDeviceOrientation);
+        } catch {}
+      }
+    }
+
+    function createScene() {
+      scene = new BABYLON.Scene(engine);
+      scene.clearColor = new BABYLON.Color4(0.05, 0.08, 0.2, 1);
+
+      camera = new BABYLON.ArcRotateCamera(
+        "camera",
+        BABYLON.Tools.ToRadians(90),
+        BABYLON.Tools.ToRadians(65),
+        12,
+        BABYLON.Vector3.Zero(),
+        scene
+      );
+      camera.attachControl(canvas, true);
+
+      const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0,1,0), scene);
+      light.intensity = 0.9;
+
+      createGround();
+      createTorus();
+      enablePhysics();
+      loadModel();
+      addSnow();
+
+      return scene;
+    }
+
+    function createGround() {
+      ground = BABYLON.MeshBuilder.CreateGround("ground", { width: 12, height: 12 }, scene);
+      const gmat = new BABYLON.StandardMaterial("gmat", scene);
+      gmat.diffuseColor = new BABYLON.Color3(0.15, 0.15, 0.25);
+      ground.material = gmat;
+      ground.position.y = -2;
+    }
+
+    function enablePhysics() {
+      try {
+        scene.enablePhysics(new BABYLON.Vector3(0,-9.81,0), new BABYLON.CannonJSPlugin());
+        physicsEnabled = true;
+
+        if (ground) ground.physicsImpostor =
+          new BABYLON.PhysicsImpostor(ground, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.7 }, scene);
+        if (torus) torus.physicsImpostor =
+          new BABYLON.PhysicsImpostor(torus, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0.5, restitution: 0.6 }, scene);
+      } catch { physicsEnabled = false; }
+    }
+
+    function createTorus() {
+      torus = BABYLON.MeshBuilder.CreateTorus("torus", {diameter:1.5, thickness:0.3, tessellation:16}, scene);
+      torus.position = new BABYLON.Vector3(0, 4, 0);
+      const mat = new BABYLON.StandardMaterial("torusMat", scene);
+      mat.diffuseColor = new BABYLON.Color3(1, 1, 0);
+      torus.material = mat;
+
+      const anim = new BABYLON.Animation("torusRotation", "rotation", 30,
+        BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+      anim.setKeys([{frame:0,value:new BABYLON.Vector3(0,0,0)},{frame:60,value:new BABYLON.Vector3(Math.PI,Math.PI*2,Math.PI/2)}]);
+      torus.animations.push(anim);
+      scene.beginAnimation(torus, 0, 60, true);
+    }
+
+    async function loadModel() {
+      try {
+        const result = await BABYLON.SceneLoader.ImportMeshAsync("", "https://www.babylonjs-playground.com/scenes/", "skull.babylon", scene);
+        if (result.meshes?.length) {
+          importedMesh = result.meshes[0];
+          importedMesh.position = new BABYLON.Vector3(0, 4, -3);
+          importedMesh.scaling = new BABYLON.Vector3(0.1, 0.1, 0.1);
+
+          const anim = new BABYLON.Animation("modelRotation", "rotation.y", 30,
+            BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+          anim.setKeys([{frame:0,value:0},{frame:120,value:Math.PI*2}]);
+          importedMesh.animations.push(anim);
+          scene.beginAnimation(importedMesh, 0, 120, true);
+        }
+      } catch {
+        const repl = BABYLON.MeshBuilder.CreateBox("replacement",{size:0.5},scene);
+        repl.position = new BABYLON.Vector3(0,4,-3);
+        const mat = new BABYLON.StandardMaterial("replacementMat", scene);
+        mat.diffuseColor = new BABYLON.Color3(1,0,1);
+        repl.material = mat;
+      }
+    }
+
+    function addSnow() {
+      const snow = new BABYLON.ParticleSystem("snow", 4000, scene);
+      snow.particleTexture = new BABYLON.Texture("https://assets.babylonjs.com/textures/flare.png", scene);
+      snow.emitter = new BABYLON.Vector3(0, 12, 0);
+      snow.minEmitBox = new BABYLON.Vector3(-8, 0, -8);
+      snow.maxEmitBox = new BABYLON.Vector3( 8, 0,  8);
+      snow.color1 = new BABYLON.Color4(1,1,1,1);
+      snow.color2 = new BABYLON.Color4(1,1,1,0.9);
+      snow.minSize = 0.05; snow.maxSize = 0.12;
+      snow.minLifeTime = 4; snow.maxLifeTime = 7;
+      snow.emitRate = 1200;
+      snow.direction1 = new BABYLON.Vector3(0, -1.5, 0);
+      snow.direction2 = new BABYLON.Vector3(0, -2.2, 0);
+      snow.gravity = new BABYLON.Vector3(0, -0.15, 0);
+      snow.updateSpeed = 0.01;
+      snow.start();
+    }
+
+    function onDeviceOrientation(event) {
+      const a = event.alpha||0, b = event.beta||0, g = event.gamma||0;
+      const dA = Math.abs(a - lastOrientationData.alpha);
+      const dB = Math.abs(b - lastOrientationData.beta);
+      const dG = Math.abs(g - lastOrientationData.gamma);
+      const threshold = 2.0;
+
+      isDeviceMoving = dA>threshold || dB>threshold || dG>threshold;
+
+      if (isDeviceMoving && importedMesh) {
+        const s = 0.01;
+        importedMesh.rotation.x = BABYLON.Tools.ToRadians(b * s);
+        importedMesh.rotation.y = BABYLON.Tools.ToRadians(a * s);
+        importedMesh.rotation.z = BABYLON.Tools.ToRadians(g * s);
+      }
+
+      lastOrientationData = { alpha:a, beta:b, gamma:g };
+    }
+
+    function resetScene() {
+      if (torus?.physicsImpostor) { torus.position.set(0,4,0); torus.physicsImpostor.setLinearVelocity(BABYLON.Vector3.Zero()); torus.physicsImpostor.setAngularVelocity(BABYLON.Vector3.Zero()); }
+      if (importedMesh) importedMesh.rotation = BABYLON.Vector3.Zero();
+      deviceOrientationData = { alpha:0,beta:0,gamma:0 };
+      lastOrientationData   = { alpha:0,beta:0,gamma:0 };
+      isDeviceMoving = false;
+    }
+
+    function onKeyDown(event) {
+      if (event.code === 'KeyR') resetScene();
+    }
+
+    function render() {
+      engine.runRenderLoop(() => { if (scene?.isReady()) scene.render(); });
+    }
+
+    window.addEventListener('beforeunload', () => { engine?.dispose(); });
+  </script>
+</body>
+</html>
