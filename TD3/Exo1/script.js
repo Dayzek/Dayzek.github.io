@@ -1,7 +1,10 @@
 let scene, camera, renderer, earth, controls;
 const earthRadius = 5;
 const markers = [];
-const earthGroup = new THREE.Group(); 
+const earthGroup = new THREE.Group();
+let map;
+let leafletMarkers = [];
+let raycaster, mouse; 
 
 
 
@@ -32,7 +35,7 @@ function init() {
     );
     camera.position.z = 15;
 
-    
+
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.getElementById('canvas-container').appendChild(renderer.domElement);
@@ -67,16 +70,22 @@ function init() {
     
     createStars();
 
-    
+
     window.addEventListener('resize', onWindowResize, false);
 
-    
+    raycaster = new THREE.Raycaster();
+    mouse = new THREE.Vector2();
+    renderer.domElement.addEventListener('click', onCanvasClick, false);
+
+
     getUserLocation();
 
-    
+
     fetchCountries();
 
-    
+    initLeafletMap();
+
+
     setTimeout(() => {
         document.getElementById('loading').style.display = 'none';
     }, 1000);
@@ -147,6 +156,7 @@ function createMarker(lat, lon, color = 0xff0000, scale = 1, textureUrl = null, 
     }
 
     marker.position.set(position.x, position.y, position.z);
+    marker.userData = { lat: lat, lon: lon, label: label };
 
     earthGroup.add(marker);
     markers.push(marker);
@@ -228,6 +238,23 @@ async function fetchCountries() {
 
 
                 createMarker(lat, lon, 0x00ff00, 1.5, flag, name);
+
+                // Ajouter le marqueur sur la carte Leaflet
+                if (map) {
+                    const leafletMarker = L.circleMarker([lat, lon], {
+                        radius: 3,
+                        fillColor: "#00ff00",
+                        color: "#000",
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    }).addTo(map);
+                    leafletMarker.bindPopup(name);
+                    leafletMarker.on('click', function() {
+                        rotateEarthTo(lat, lon);
+                    });
+                    leafletMarkers.push(leafletMarker);
+                }
             }
 
 
@@ -241,20 +268,100 @@ async function fetchCountries() {
 }
 
 
+function initLeafletMap() {
+    map = L.map('map-container').setView([20, 0], 2);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 18
+    }).addTo(map);
+
+    map.on('click', onMapClick);
+}
+
+function onMapClick(e) {
+    const lat = e.latlng.lat;
+    const lon = e.latlng.lng;
+
+    console.log(`Clic sur la carte: ${lat}, ${lon}`);
+
+    rotateEarthTo(lat, lon);
+
+    L.marker([lat, lon]).addTo(map)
+        .bindPopup(`Position: ${lat.toFixed(2)}, ${lon.toFixed(2)}`)
+        .openPopup();
+}
+
+function rotateEarthTo(lat, lon) {
+    console.log(`Recentrage sur lat: ${lat.toFixed(2)}, lon: ${lon.toFixed(2)}`);
+
+    const localPosition = latLonToCartesian(lat, lon, earthRadius);
+
+    const tempObject = new THREE.Object3D();
+    tempObject.position.set(localPosition.x, localPosition.y, localPosition.z);
+    earthGroup.add(tempObject);
+
+    const worldPosition = new THREE.Vector3();
+    tempObject.getWorldPosition(worldPosition);
+
+    earthGroup.remove(tempObject);
+
+    worldPosition.normalize();
+
+    const cameraDistance = 15;
+    const newCameraPosition = worldPosition.multiplyScalar(cameraDistance);
+
+    camera.position.set(newCameraPosition.x, newCameraPosition.y, newCameraPosition.z);
+    camera.lookAt(0, 0, 0);
+
+    controls.target.set(0, 0, 0);
+    controls.update();
+
+    console.log(`Caméra repositionnée: x=${camera.position.x.toFixed(2)}, y=${camera.position.y.toFixed(2)}, z=${camera.position.z.toFixed(2)}`);
+}
+
+function onCanvasClick(event) {
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+
+    const intersects = raycaster.intersectObjects(markers);
+
+    if (intersects.length > 0) {
+        const clickedMarker = intersects[0].object;
+        const userData = clickedMarker.userData;
+
+        if (userData && userData.lat !== undefined && userData.lon !== undefined) {
+            console.log(`Clic sur ${userData.label}: ${userData.lat}, ${userData.lon}`);
+
+            map.setView([userData.lat, userData.lon], 6);
+
+            L.marker([userData.lat, userData.lon]).addTo(map)
+                .bindPopup(userData.label || 'Marqueur')
+                .openPopup();
+        }
+    }
+}
+
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    if (map) {
+        map.invalidateSize();
+    }
 }
 
 
 function animate() {
     requestAnimationFrame(animate);
 
-    
+
     earthGroup.rotation.y += 0.001;
 
-    
+
     controls.update();
 
     renderer.render(scene, camera);

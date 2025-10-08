@@ -4,21 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Exercice 1 - Géolocalisation et 3D</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="canvas-container"></div>
 
+    <div id="map-container"></div>
+
     <div id="info">
-        <h3>GéSolocalisation 3D</h3>
+        <h3>Géolocalisation 3D</h3>
         <p id="user-location">Localisation en cours...</p>
-        <p>Utilisez la souris pour faire pivoter la Terre</p>
+        <p>Cliquez sur la carte pour repositionner la Terre</p>
+        <p>Cliquez sur un cube pour recentrer la carte</p>
     </div>
 
     <div id="loading">Chargement de la scène...</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script src="script.js"></script>
 </body>
