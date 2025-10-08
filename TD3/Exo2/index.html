@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Babylon.js - AR Géolocalisée (Correction Finale)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <style>
+        html, body { overflow: hidden; width: 100%; height: 100%; margin: 0; padding: 0; }
+        #renderCanvas { width: 100%; height: 100%; touch-action: none; }
+        #info { position: absolute; bottom: 10px; left: 10px; color: white; background-color: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px; font-family: sans-serif; font-size: 12px; max-width: 300px; }
+        #info p { margin: 3px 0; }
+    </style>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+</head>
+<body>
+    <div id="info">Initialisation...</div>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('renderCanvas');
+        const engine = new BABYLON.Engine(canvas, true);
+        const infoDiv = document.getElementById('info');
+
+        // --- Paramètres de la scène ---
+        const distance = 10;
+        const cubeSize = 1;
+        const smoothingFactor = 0.05;
+
+        // Variables pour le lissage de l'orientation
+        let targetAngleY = 0;
+        let smoothedAngleY = 0;
+
+        // Variables de géolocalisation
+        let userLat = null;
+        let userLon = null;
+        let userAlt = 0;
+
+        // Objets géolocalisés
+        const geoObjects = [
+            { name: "Tour Eiffel", lat: 48.8584, lon: 2.2945, alt: 300, color: BABYLON.Color3.Red() },
+            { name: "Arc de Triomphe", lat: 48.8738, lon: 2.2950, alt: 50, color: BABYLON.Color3.Green() },
+            { name: "Sacré-Cœur", lat: 48.8867, lon: 2.3431, alt: 130, color: BABYLON.Color3.Blue() },
+            { name: "Notre-Dame", lat: 48.8530, lon: 2.3499, alt: 90, color: BABYLON.Color3.Yellow() }
+        ];
+
+        const geoMarkers = [];
+
+        const createScene = () => {
+            const scene = new BABYLON.Scene(engine);
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            const camera = new BABYLON.FreeCamera("camera", new BABYLON.Vector3(0, 0, 0), scene);
+            
+            // Placement fixe des cubes
+            const cubeNorth = BABYLON.MeshBuilder.CreateBox("Nord", { size: cubeSize }, scene);
+            cubeNorth.position = new BABYLON.Vector3(0, 0, distance);
+            cubeNorth.material = new BABYLON.StandardMaterial("matN", scene);
+            cubeNorth.material.emissiveColor = BABYLON.Color3.Red();
+
+            const cubeEast = BABYLON.MeshBuilder.CreateBox("Est", { size: cubeSize }, scene);
+            cubeEast.position = new BABYLON.Vector3(distance, 0, 0);
+            cubeEast.material = new BABYLON.StandardMaterial("matE", scene);
+            cubeEast.material.emissiveColor = BABYLON.Color3.Green();
+
+            const cubeSouth = BABYLON.MeshBuilder.CreateBox("Sud", { size: cubeSize }, scene);
+            cubeSouth.position = new BABYLON.Vector3(0, 0, -distance);
+            cubeSouth.material = new BABYLON.StandardMaterial("matS", scene);
+            cubeSouth.material.emissiveColor = BABYLON.Color3.Blue();
+
+            const cubeWest = BABYLON.MeshBuilder.CreateBox("Ouest", { size: cubeSize }, scene);
+            cubeWest.position = new BABYLON.Vector3(-distance, 0, 0);
+            cubeWest.material = new BABYLON.StandardMaterial("matW", scene);
+            cubeWest.material.emissiveColor = BABYLON.Color3.Yellow();
+
+            setupARBackground(scene);
+            setupOrientationListener();
+            setupGeolocation(scene);
+            createGeoMarkers(scene);
+
+            return scene;
+        };
+
+        const setupARBackground = (scene) => {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+                .then(stream => {
+                    const video = document.createElement('video');
+                    video.setAttribute('playsinline', '');
+                    video.setAttribute('autoplay', '');
+                    video.srcObject = stream;
+                    video.play();
+                    
+                    const background = new BABYLON.Layer("background", null, scene, true);
+                    background.texture = new BABYLON.VideoTexture("video", video, scene, true);
+                }).catch(err => {
+                    infoDiv.innerHTML = "<strong>Erreur:</strong> Caméra inaccessible. Assurez-vous d'utiliser <strong>HTTPS</strong>.";
+                });
+        };
+
+        const setupOrientationListener = () => {
+            window.addEventListener("deviceorientationabsolute", (event) => {
+                if (event.alpha !== null) {
+                    // --- CORRECTION FINALE AVEC L'API MODERNE ---
+                    // screen.orientation.angle donne 0°, 90°, 180°, 270°
+                    const screenAngle = screen.orientation.angle || 0;
+
+                    // On soustrait l'angle de l'écran pour obtenir le vrai cap
+                    const compensatedAlpha = event.alpha - screenAngle;
+
+                    targetAngleY = -compensatedAlpha;
+                    updateInfoDisplay(compensatedAlpha);
+                }
+            }, true);
+        };
+
+        const setupGeolocation = (scene) => {
+            if ("geolocation" in navigator) {
+                navigator.geolocation.watchPosition(
+                    (position) => {
+                        userLat = position.coords.latitude;
+                        userLon = position.coords.longitude;
+                        userAlt = position.coords.altitude || 0;
+
+                        updateGeoMarkers();
+                        updateInfoDisplay();
+                    },
+                    (error) => {
+                        console.error("Erreur GPS:", error);
+                        // Position par défaut (Paris)
+                        userLat = 48.8566;
+                        userLon = 2.3522;
+                        userAlt = 35;
+                        updateGeoMarkers();
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        maximumAge: 0,
+                        timeout: 5000
+                    }
+                );
+            }
+        };
+
+        const createGeoMarkers = (scene) => {
+            geoObjects.forEach(obj => {
+                const marker = BABYLON.MeshBuilder.CreateBox(obj.name, { size: 2 }, scene);
+                const material = new BABYLON.StandardMaterial(`mat_${obj.name}`, scene);
+                material.emissiveColor = obj.color;
+                marker.material = material;
+
+                marker.userData = {
+                    name: obj.name,
+                    lat: obj.lat,
+                    lon: obj.lon,
+                    alt: obj.alt
+                };
+
+                geoMarkers.push(marker);
+            });
+        };
+
+        const calculateDistance = (lat1, lon1, lat2, lon2) => {
+            const R = 6371000;
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+            return R * c;
+        };
+
+        const calculateBearing = (lat1, lon1, lat2, lon2) => {
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+            const y = Math.sin(Δλ) * Math.cos(φ2);
+            const x = Math.cos(φ1) * Math.sin(φ2) -
+                      Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+            const θ = Math.atan2(y, x);
+
+            return (θ * 180 / Math.PI + 360) % 360;
+        };
+
+        const updateGeoMarkers = () => {
+            if (userLat === null || userLon === null) return;
+
+            geoMarkers.forEach(marker => {
+                const data = marker.userData;
+                const distance = calculateDistance(userLat, userLon, data.lat, data.lon);
+                const bearing = calculateBearing(userLat, userLon, data.lat, data.lon);
+
+                const bearingRad = bearing * Math.PI / 180;
+                const scale = 0.05;
+
+                const x = Math.sin(bearingRad) * distance * scale;
+                const z = -Math.cos(bearingRad) * distance * scale;
+                const y = (data.alt - userAlt) * scale;
+
+                marker.position = new BABYLON.Vector3(x, y, z);
+
+                marker.rotation.x += 0.01;
+                marker.rotation.y += 0.01;
+            });
+        };
+
+        const updateInfoDisplay = (heading) => {
+            let html = '<p><strong>AR Géolocalisée</strong></p>';
+
+            if (heading !== undefined) {
+                html += `<p>Cap: ${(heading % 360).toFixed(1)}°</p>`;
+            }
+
+            if (userLat && userLon) {
+                html += `<p>Position: ${userLat.toFixed(6)}, ${userLon.toFixed(6)}</p>`;
+                html += `<p>Altitude: ${userAlt.toFixed(0)}m</p>`;
+            }
+
+            infoDiv.innerHTML = html;
+        };
+
+        const scene = createScene();
+        
+        engine.runRenderLoop(() => {
+            let delta = targetAngleY - smoothedAngleY;
+            // Gère le passage de 360° à 0°
+            if (Math.abs(delta) > 180) {
+                delta -= Math.sign(delta) * 360;
+            }
+
+            smoothedAngleY += delta * smoothingFactor;
+
+            scene.activeCamera.rotation.y = BABYLON.Tools.ToRadians(smoothedAngleY);
+
+            // Mettre à jour les marqueurs géolocalisés
+            updateGeoMarkers();
+
+            scene.render();
+        });
+
+        window.addEventListener('resize', () => {
+            engine.resize();
+        });
+    </script>
+</body>
+</html>
