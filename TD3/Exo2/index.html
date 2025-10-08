@@ -50,26 +50,26 @@
             const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
             const camera = new BABYLON.FreeCamera("camera", new BABYLON.Vector3(0, 0, 0), scene);
             
-            // Cubes de direction (commentés pour éviter la confusion avec les marqueurs géolocalisés)
-            // const cubeNorth = BABYLON.MeshBuilder.CreateBox("Nord", { size: cubeSize }, scene);
-            // cubeNorth.position = new BABYLON.Vector3(0, 0, distance);
-            // cubeNorth.material = new BABYLON.StandardMaterial("matN", scene);
-            // cubeNorth.material.emissiveColor = BABYLON.Color3.Red();
+            // Placement fixe des cubes
+            const cubeNorth = BABYLON.MeshBuilder.CreateBox("Nord", { size: cubeSize }, scene);
+            cubeNorth.position = new BABYLON.Vector3(0, 0, distance);
+            cubeNorth.material = new BABYLON.StandardMaterial("matN", scene);
+            cubeNorth.material.emissiveColor = BABYLON.Color3.Red();
 
-            // const cubeEast = BABYLON.MeshBuilder.CreateBox("Est", { size: cubeSize }, scene);
-            // cubeEast.position = new BABYLON.Vector3(distance, 0, 0);
-            // cubeEast.material = new BABYLON.StandardMaterial("matE", scene);
-            // cubeEast.material.emissiveColor = BABYLON.Color3.Green();
+            const cubeEast = BABYLON.MeshBuilder.CreateBox("Est", { size: cubeSize }, scene);
+            cubeEast.position = new BABYLON.Vector3(distance, 0, 0);
+            cubeEast.material = new BABYLON.StandardMaterial("matE", scene);
+            cubeEast.material.emissiveColor = BABYLON.Color3.Green();
 
-            // const cubeSouth = BABYLON.MeshBuilder.CreateBox("Sud", { size: cubeSize }, scene);
-            // cubeSouth.position = new BABYLON.Vector3(0, 0, -distance);
-            // cubeSouth.material = new BABYLON.StandardMaterial("matS", scene);
-            // cubeSouth.material.emissiveColor = BABYLON.Color3.Blue();
+            const cubeSouth = BABYLON.MeshBuilder.CreateBox("Sud", { size: cubeSize }, scene);
+            cubeSouth.position = new BABYLON.Vector3(0, 0, -distance);
+            cubeSouth.material = new BABYLON.StandardMaterial("matS", scene);
+            cubeSouth.material.emissiveColor = BABYLON.Color3.Blue();
 
-            // const cubeWest = BABYLON.MeshBuilder.CreateBox("Ouest", { size: cubeSize }, scene);
-            // cubeWest.position = new BABYLON.Vector3(-distance, 0, 0);
-            // cubeWest.material = new BABYLON.StandardMaterial("matW", scene);
-            // cubeWest.material.emissiveColor = BABYLON.Color3.Yellow();
+            const cubeWest = BABYLON.MeshBuilder.CreateBox("Ouest", { size: cubeSize }, scene);
+            cubeWest.position = new BABYLON.Vector3(-distance, 0, 0);
+            cubeWest.material = new BABYLON.StandardMaterial("matW", scene);
+            cubeWest.material.emissiveColor = BABYLON.Color3.Yellow();
 
             setupARBackground(scene);
             setupOrientationListener();
